@@ -1,0 +1,35 @@
+{
+  "timezone": "Pacific/Auckland",
+  "origin": {
+    "label": "Donald Mclean Lookout",
+    "latitude": -37.01568314501544,
+    "longitude": 174.53970326117354,
+    "elevation": 328
+  },
+  "target": {
+    "label": "Mount Taranaki",
+    "latitude": -39.29621159981697,
+    "longitude": 174.06380458851328,
+    "elevation": 2518
+  },
+  "points": [
+    {
+      "label": "Donald Mclean Lookout -> Mount Taranaki 1/3",
+      "latitude": -37.58599309668525,
+      "longitude": 174.42348636155225,
+      "elevation": 875.5
+    },
+    {
+      "label": "Donald Mclean Lookout -> Mount Taranaki 2/3",
+      "latitude": -38.15618734883822,
+      "longitude": 174.30547502957066,
+      "elevation": 1423
+    },
+    {
+      "label": "Donald Mclean Lookout -> Mount Taranaki 3/3",
+      "latitude": -38.72626165832032,
+      "longitude": 174.18560384076955,
+      "elevation": 1970.5
+    }
+  ]
+}
