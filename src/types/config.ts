@@ -15,15 +15,20 @@ const DEFAULT_TIMEZONE = "Pacific/Auckland";
 
 const zeroToOneHundredSchema = z.number().gte(0).lte(100).optional();
 const scoringConfigSchema = z.object({
+    sunTooLowBelowDegrees: z.number().optional(),
+    minAzimuthDiffBelowFiveDegrees: z.number().nonnegative().optional(),
+    minAzimuthDiffBelowTenDegrees: z.number().nonnegative().optional(),
     maxLowCloud: zeroToOneHundredSchema,
     maxTotalCloudCover: zeroToOneHundredSchema,
     maxHighCloudAtTarget: zeroToOneHundredSchema,
-    maxPrecipitationAtTarget: z.number().positive().optional(),
-    maxPrecipitation: z.number().positive().optional(),
-    minAcceptableVisibility: z.number().positive().optional(),
-    idealVisibility: z.number().positive().optional(),
-    minAcceptableDewPointSpread: z.number().positive().optional(),
-    idealDewPointSpread: z.number().positive().optional(),
+    maxPrecipitationAtTarget: z.number().nonnegative().optional(),
+    maxPrecipitation: z.number().nonnegative().optional(),
+    minVisibility: z.number().nonnegative().optional(),
+    minLiftedIndex: z.number().optional(),
+    maxWindSpeed: z.number().nonnegative().optional(),
+    minAcceptableDewPointSpread: z.number().optional(),
+    idealDewPointSpread: z.number().nonnegative().optional(),
+    boundaryLayerMaxPenalty: z.number().gte(0).lte(1).optional(),
 });
 
 export type ScoringConfig = z.infer<typeof scoringConfigSchema>;

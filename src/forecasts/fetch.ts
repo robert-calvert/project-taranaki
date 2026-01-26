@@ -9,6 +9,7 @@ import {
 import { apiGet } from "../util/api";
 import * as SunCalc from "suncalc";
 import { toDegrees } from "../calc/func";
+import dayjs from "dayjs";
 
 async function sendOpenMeteoRequest<T>(
     periodKey: string,
@@ -65,9 +66,14 @@ export async function getDailySunriseSunset(
 
     let pairs: Record<string, SunriseSunsetPair> = {};
     innerResponse.time.forEach((dateString, index) => {
+        const sunrise = dayjs(innerResponse.sunrise[index]);
+        const sunset = dayjs(innerResponse.sunset[index]);
+
         pairs[dateString] = {
-            sunriseDateTime: innerResponse.sunrise[index],
-            sunsetDateTime: innerResponse.sunset[index],
+            sunriseMin: sunrise.subtract(30, "minutes"),
+            sunriseMax: sunrise.add(120, "minutes"),
+            sunsetMin: sunset.subtract(120, "minutes"),
+            sunsetMax: sunset.add(30, "minutes"),
         };
     });
 
@@ -104,7 +110,7 @@ export async function getHourlyForecasts(
             );
 
             return {
-                dateTime: time,
+                dateTime: dayjs(time),
                 temperature2m: innerResponse.temperature_2m[index],
                 dewPoint2m: innerResponse.dew_point_2m[index],
                 visibility: innerResponse.visibility[index],
@@ -113,8 +119,12 @@ export async function getHourlyForecasts(
                 cloudCoverLow: innerResponse.cloud_cover_low[index],
                 cloudCover: innerResponse.cloud_cover[index],
                 precipitation: innerResponse.precipitation[index],
+                boundaryLayerHeight: innerResponse.boundary_layer_height[index],
+                liftedIndex: innerResponse.lifted_index[index],
+                windSpeed10m: innerResponse.wind_speed_10m[index],
                 sunAltitudeDegrees: toDegrees(sunPosition.altitude),
-                sunAzimuthDegrees: toDegrees(sunPosition.azimuth),
+                // Convert SunCalc's South-based azimuth to a North-based one.
+                sunAzimuthDegrees: (toDegrees(sunPosition.azimuth) + 180) % 360,
             };
         });
 }

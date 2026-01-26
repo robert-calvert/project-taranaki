@@ -1,10 +1,14 @@
+import { Dayjs } from "dayjs";
+
 export type SunriseSunsetPair = {
-    sunriseDateTime: string;
-    sunsetDateTime: string;
+    sunriseMin: Dayjs;
+    sunriseMax: Dayjs;
+    sunsetMin: Dayjs;
+    sunsetMax: Dayjs;
 };
 
 export type PointForecast = {
-    dateTime: string;
+    dateTime: Dayjs;
     temperature2m: number;
     dewPoint2m: number;
     visibility: number | null; // null for some historical responses
@@ -13,12 +17,15 @@ export type PointForecast = {
     cloudCoverLow: number;
     cloudCover: number;
     precipitation: number;
+    boundaryLayerHeight: number;
+    liftedIndex: number | null; // null for some historical responses
+    windSpeed10m: number;
     sunAltitudeDegrees: number;
     sunAzimuthDegrees: number;
 };
 
 export type LineOfSightForecast = {
-    dateTime: string;
+    dateTime: Dayjs;
     originForecast: PointForecast;
     targetForecast: PointForecast;
     pointForecasts: PointForecast[];

@@ -21,9 +21,7 @@ npm run build
 ```
 Then, work from `config.json` to configure the tool for your line of sight (LOS).
 
-An `origin` and `target` are required, the other configuration options can either be generated or have default values.
-
-Elevations are in metres, and in general the tool uses metric units.
+An `origin` and `target` are required. Elevations are in metres.
 
 If your LOS is not in New Zealand, add a timezone to your config too.
 ```json
@@ -113,46 +111,83 @@ There are a few arguments you can provide to adjust what the script does:
 
 ### Output
 
-Here's an example output of 3 forecast days with ideal lighting for the default line of sight:
+Here's an example output of 3 forecast days with ideal lighting:
 ```
 Fetching forecasts...
-[x] 7am, Thu 05 Feb scores 0 (Too much low cloud, max 100%)
-[x] 8am, Thu 05 Feb scores 0 (Too much low cloud, max 100%)
-[x] 7pm, Thu 05 Feb scores 0 (Too much low cloud, max 100%)
-[x] 8pm, Thu 05 Feb scores 0 (Too much low cloud, max 100%)
-[x] 7am, Fri 06 Feb scores 0 (Too much low cloud, max 37%)
-[x] 8am, Fri 06 Feb scores 0 (Too much low cloud, max 42%)
-[x] 7pm, Fri 06 Feb scores 0 (Too much low cloud, max 47%)
-[x] 8pm, Fri 06 Feb scores 0 (Too much low cloud, max 36%)
-[x] 7am, Sat 07 Feb scores 45 (Dew point spread score 38, visibility score 100)
-[x] 8am, Sat 07 Feb scores 40 (Dew point spread score 34, visibility score 100)
-[x] 7pm, Sat 07 Feb scores 0 (Too much low cloud, max 75%)
-[x] 8pm, Sat 07 Feb scores 0 (Too much low cloud, max 77%)
+[x] 19:00 Mon 26 Jan scores 0 (Too much low cloud, max 79%)
+[x] 20:00 Mon 26 Jan scores 0 (Too much low cloud, max 67%)
+[x] 21:00 Mon 26 Jan scores 0 (Too much low cloud, max 80%)
+[x] 19:00 Tue 27 Jan scores 0 (Too much low cloud, max 75%)
+[x] 20:00 Tue 27 Jan scores 0 (Too much low cloud, max 66%)
+[x] 21:00 Tue 27 Jan scores 0 (Too much low cloud, max 71%)
+[x] 19:00 Wed 28 Jan scores 0 (Too much low cloud, max 26%)
+[x] 20:00 Wed 28 Jan scores 37 (Base score 37 from minimum dew point spread of 3.2°, adjusted by boundary layer multiplier of 1.00)
+[x] 21:00 Wed 28 Jan scores 35 (Base score 35 from minimum dew point spread of 3.1°, adjusted by boundary layer multiplier of 1.00)
 ```
 
 Most forecasted hourly time windows fail and score 0 with the reason noted.
 
-Two time windows have a non-zero score, meaning there aren't any "hard blockers" such as an unfavourable sun position, rain or cloud cover along the line of sight, low visibility, or high humidity.
+Two time windows have a non-zero score, meaning there aren't any "hard blockers" along the line of sight.
 
-The score is made up of two components:
-
-* The dew point spread score, a rough proxy for humidity and therefore likely haze, with a 90% weight.
-* The visibility score, based on Open-Meteo's visibility variable, with a 10% weight.
-
-As visibility caps out at 24km, at least for the weather models used in New Zealand, it has a very low weight, leaving the dew point spread to provide most of the nuance for the final score.
-
-With both non-zero scores being below 50 (and this not being overridden with a notify threshold) they are still shown with an `[x]` indicator. Any scores at or above 50 are shown with a `[*]` indicator. You may well be able to see Mount Taranaki with on these scores, but haze would make it very difficult to make out.
+With both non-zero scores being below 50 (and this not being overridden with a notify threshold) they are still shown with an `[x]` indicator. Any scores at or above 50 are shown with a `[*]` indicator.
 
 ### Advice
 
 While you can forecast up to 14 days out, **the accuracy of key measurements are limited beyond 3 days or so**. For this reason I run the tool on Friday mornings with the default 3 forecast days to cover the weekend. If any time windows look promising, you should run the tool again just a few hours beforehand to recalculate the scores with the most up-to-date forecasts, as the weather can change quickly, particularly in Auckland.
 
+## Scoring Logic
+
+The tool uses a variety of variables from [Open-Meteo's hourly weather forecast API](https://open-meteo.com/en/docs) measured at the origin, target, and points between them to calculate its scores for each time window or rule them out entirely.
+
+### Hard failure cases
+
+| Variable | Default Failure Threshold | Notes |
+| -------- | ------------------------- | ----- |
+| Sun altitude | Min of -5° | If the sun is too low below the horizon, it is too dark to see the target. |
+| Azimuth difference between the sun and target | <30° when sun below -5° altitude, <10° when sun below -10° altitude | If you're looking directly into the sun, you can't see the target. |
+| Low cloud | More than 25% at any point, except at the target if it is high elevation | Low cloud banks will block the view of the target, unless they are at the target and below the horizon. |
+| Total cloud cover | More than 40% at any point | Too much total cloud cover will block the view of the target. |
+| High cloud at target | More than 10% | High cloud at the target will obscure its distinct outline even if otherwise clear along the LOS. |
+| Rain at target | More than 0.1mm | Like above, rain at the target will obscure it. |
+| Rain | More than 0.3mm at any point | Rain along the LOS will obscure the target. |
+| Visibility | Less than 15,000m at any point | If something impacts visibility as measured by weather models, the target will be obscured. |
+| Wind speed at 10m | More than 40km/h, except at the target if it is high elevation | High winds near sea level may generate aerosols (sea spray) that over long distances may obscure the target. |
+| Lifted index | Less than 0.1 | A lifted index below zero means the air is unstable, creating optical distortion / shimmer. |
+| Dew point spread | Less than 1 at any point | A very low dew point spread indicates high humidity and therefore hazy conditions, likely obscuring the target. |
+
+### Dew point spread and the boundary layer height
+
+If none of the hard failure cases above are met, then chances are there is nothing directly blocking the view of the target. This is where we then use more nuanced variables to calculate a score between 0 and 100 that gives an indication of just how clear the line of sight will be in the time window.
+
+The **dew point spread**, the difference between the air temperature and the dew point, is a measure of humidity. A lower dew point spread indicates higher humidity and therefore hazy/foggy conditions, while a higher dew point spread indicates clear, dry air. By default, time windows with a minimum spread below 1 fail completely, those with a minimum spread over 7 will score 100, with spreads in between scaled linearly to get the score.
+
+This score is then adjusted with a **boundary layer height** multiplier. The planetary boundary layer is the lowest part of the atmosphere that contains the bulk of the aerosols and humidity, and so being within it at the origin can impact how clear the view of the target will be. This multiplier is based on the ratio of the origin elevation and the forecasted boundary layer height. If the origin is above or just below the boundary layer height, there is a limited impact on the final score, but if the origin is deeper into the boundary layer, it may meaningfully reduce the final score.
+
+You may still get a great shot while within the boundary layer, so by default there is a max penalty of 70% of the original score, meaning the worst possible boundary layer height multiplier would reduce a dew point spread score of 100 down to 70.
+
+### Customising the scoring logic
+
+You can override any or all of the default thresholds and other values used in the scoring calculation by including a `scoring` object in your line of sight's configuration file. This can be good for adjusting to specific geographies where conditions may be more or less forgiving than the defaults that have been calibrated for Donald Mclean to Mount Taranaki.
+
+For example, if the default cloud cover thresholds are too strict:
+
+```json
+{
+  // timezone, origin, target, points
+  "scoring": {
+    "maxLowCloud": 60,
+    "maxTotalCloudCover": 80
+  }
+}
+```
+
 ## Calibration based on successful photos of other sightlines
 
-While I don't know of any photos of Taranaki from Donald Mclean, there are a handful of great photos of Taranaki from hills in and around Wellington at slightly shorter distances (~230km). These were useful in calibrating the scoring logic, with the time windows getting intuitive scores:
+While I don't know of any photos of Taranaki from Donald Mclean, there are a handful of great photos of Taranaki from hills in and around Wellington at slightly shorter distances (205-235km). These were useful in calibrating the scoring logic, with the time windows getting intuitive scores:
 
-* [Lilia Alexander's May 2020 shot from Wrights Hill](https://theviewshed.com/?view=12112) scores a **71**, reflecting the very clear conditions.
-* [Robin Bodley's Dec 2022 shot from Hawkin's Hill](https://theviewshed.com/?view=12246) scores between **29 and 17**, reflecting the fairly hazy conditions.
+* [Brendon from 3kiwi's July 2015 shot from Paekakariki Hill Road](https://2kiwis.nz/2015/07/clear-air-views/) scores a **74**, with exceptionally clear dry air but being somewhat in the boundary layer.
+* [Lilia Alexander's May 2020 shot from Wrights Hill](https://theviewshed.com/?view=12112) scores a **64**, with clear conditions but being partially in the boundary layer.
+* [Robin Bodley's Dec 2022 shot from Hawkin's Hill](https://theviewshed.com/?view=12246) scores between **23 and 8**, with fairly hazy summer conditions.
 
 The non-trivial extra distance from Donald Mclean and therefore greater reliance on refraction and clear air means that replicating Robin's conditions would likely make Taranaki very difficult to see, justifying its score under the default threshold of 50, while Lilia's conditions or better would give you a good chance of a great shot.
 
@@ -163,7 +198,7 @@ node build/scoreForecasts --config hawkins --asAtDate 2022-12-28
 
 ## AI Usage
 
-ChatGPT 5.1 was used for:
+Gemini 3 Pro and ChatGPT 5.1 were used for:
 * Advice on what weather variables to measure for my forecasts and how the scoring logic could work.
 * TypeScript functions for the maths-heavy calculations in `/src/calc`, with some revisions by me.
 * Code reviews and generally sense-checking my approach and implementation.

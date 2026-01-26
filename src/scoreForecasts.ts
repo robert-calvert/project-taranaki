@@ -3,31 +3,11 @@ import minimist from "minimist";
 import z from "zod";
 import { readConfig } from "./util/configs";
 import { getDailySunriseSunset, getHourlyForecasts } from "./forecasts/fetch";
-import { PointForecast, SunriseSunsetPair } from "./types/forecast";
-import dayjs from "dayjs";
 import { scoreLineOfSightForecast } from "./forecasts/score";
 import { computeAzimuth } from "./calc/azimuth";
 import { sendGmailNotification } from "./util/email";
 
 dotenv.config({ path: __dirname + "/../.env", quiet: true });
-
-function isIdealLighting(
-    forecast: PointForecast,
-    sunriseSunsetPair: SunriseSunsetPair
-): boolean {
-    const sunrise = dayjs(sunriseSunsetPair.sunriseDateTime);
-    const sunriseMin = sunrise.subtract(30, "minutes");
-    const sunriseMax = sunrise.add(90, "minutes");
-    const sunset = dayjs(sunriseSunsetPair.sunsetDateTime);
-    const sunsetMin = sunset.subtract(90, "minutes");
-    const sunsetMax = sunset.add(30, "minutes");
-
-    const timestamp = dayjs(forecast.dateTime);
-    return (
-        (timestamp.isAfter(sunriseMin) && timestamp.isBefore(sunriseMax)) ||
-        (timestamp.isAfter(sunsetMin) && timestamp.isBefore(sunsetMax))
-    );
-}
 
 async function scoreForecasts() {
     try {
@@ -62,20 +42,22 @@ async function scoreForecasts() {
             args.asAtDate
         );
 
-        const originForecasts = await getHourlyForecasts(
-            args.days,
-            config.origin.latitude,
-            config.origin.longitude,
-            config.timezone,
-            args.asAtDate
-        );
-        const targetForecasts = await getHourlyForecasts(
-            args.days,
-            config.target.latitude,
-            config.target.longitude,
-            config.timezone,
-            args.asAtDate
-        );
+        const [originForecasts, targetForecasts] = await Promise.all([
+            getHourlyForecasts(
+                args.days,
+                config.origin.latitude,
+                config.origin.longitude,
+                config.timezone,
+                args.asAtDate
+            ),
+            getHourlyForecasts(
+                args.days,
+                config.target.latitude,
+                config.target.longitude,
+                config.timezone,
+                args.asAtDate
+            ),
+        ]);
         const pointForecasts = config.points
             ? await Promise.all(
                   config.points.map(
@@ -95,11 +77,18 @@ async function scoreForecasts() {
         let output = "";
         for (let i = 0; i < originForecasts.length; i++) {
             const originForecast = originForecasts[i];
-            const date = dayjs(originForecast.dateTime);
+            const date = originForecast.dateTime;
             if (args.idealLightingOnly) {
                 const dateString = date.format("YYYY-MM-DD");
-                const sunriseSunsetPair = sunriseSunsetPairs[dateString];
-                if (!isIdealLighting(originForecast, sunriseSunsetPair)) {
+                const pair = sunriseSunsetPairs[dateString];
+                if (
+                    !(
+                        (date.isAfter(pair.sunsetMin) &&
+                            date.isBefore(pair.sunriseMax)) ||
+                        (date.isAfter(pair.sunsetMin) &&
+                            date.isBefore(pair.sunsetMax))
+                    )
+                ) {
                     continue;
                 }
             }
@@ -119,8 +108,9 @@ async function scoreForecasts() {
                         config.target.longitude
                     ),
                 },
-                config.scoring,
-                config.target.elevation > 2000
+                config.origin.elevation,
+                config.target.elevation,
+                config.scoring
             );
 
             if (result.score >= (args.notifyAtThreshold ?? 50)) {
@@ -130,7 +120,7 @@ async function scoreForecasts() {
                 output += "[x] ";
             }
 
-            const formattedDate = date.format("ha, ddd DD MMM");
+            const formattedDate = date.format("HH:mm ddd DD MMM");
             output += `${formattedDate} scores ${result.score} (${result.note})\n`;
         }
 
@@ -140,7 +130,7 @@ async function scoreForecasts() {
             console.log("Sending notification email...");
             await sendGmailNotification(
                 output,
-                `Upcoming forecasts have scored >=${args.notifyAtThreshold}`
+                `${config.origin.label} to ${config.target.label}: Upcoming forecasts have scored >=${args.notifyAtThreshold}`
             );
         }
     } catch (error) {

@@ -21,7 +21,7 @@ export type OpenMeteoDailyResponse = z.infer<
 /* Hourly */
 
 export const HOURLY_VARIABLES =
-    "temperature_2m,dew_point_2m,visibility,cloud_cover_high,cloud_cover_mid,cloud_cover_low,cloud_cover,precipitation";
+    "temperature_2m,dew_point_2m,visibility,cloud_cover_high,cloud_cover_mid,cloud_cover_low,cloud_cover,precipitation,boundary_layer_height,lifted_index,wind_speed_10m";
 
 const nonEmptyNumberArraySchema = z.array(z.number()).nonempty();
 const zeroToHundredVariableArraySchema = z
@@ -39,6 +39,9 @@ export const openMeteoHourlyResponseSchema = z.object({
         cloud_cover_low: zeroToHundredVariableArraySchema,
         cloud_cover: zeroToHundredVariableArraySchema,
         precipitation: nonEmptyNumberArraySchema,
+        boundary_layer_height: nonEmptyNumberArraySchema,
+        lifted_index: z.array(z.number().nullable()).nonempty(),
+        wind_speed_10m: nonEmptyNumberArraySchema,
     }),
 });
 

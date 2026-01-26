@@ -5,31 +5,34 @@ import {
     LineOfSightForecastResult,
 } from "../types/forecast";
 
+const HIGH_ELEVATION_THRESHOLD = 2000;
+
 const defaultScoringConfig: Required<ScoringConfig> = {
+    sunTooLowBelowDegrees: -5,
+    minAzimuthDiffBelowFiveDegrees: 30,
+    minAzimuthDiffBelowTenDegrees: 10,
     maxLowCloud: 25,
     maxTotalCloudCover: 40,
     maxHighCloudAtTarget: 10,
     maxPrecipitationAtTarget: 0.1,
     maxPrecipitation: 0.3,
-    minAcceptableVisibility: 15000,
-    idealVisibility: 24000,
+    minVisibility: 15000,
+    minLiftedIndex: 0.1,
+    maxWindSpeed: 40,
     minAcceptableDewPointSpread: 1,
-    idealDewPointSpread: 7.5,
+    idealDewPointSpread: 7,
+    boundaryLayerMaxPenalty: 0.7,
 };
 
 export function scoreLineOfSightForecast(
     lineOfSightForecast: LineOfSightForecast,
-    scoringConfig: ScoringConfig = defaultScoringConfig,
-    highElevationTarget: boolean = true
+    originElevation: number,
+    targetElevation: number,
+    scoringConfig: ScoringConfig = defaultScoringConfig
 ): LineOfSightForecastResult {
-    const config: Required<ScoringConfig> = {
+    const scoring: Required<ScoringConfig> = {
         ...defaultScoringConfig,
         ...scoringConfig,
-    };
-
-    let zeroResult: LineOfSightForecastResult = {
-        score: 0,
-        note: "Unknown failure",
     };
 
     const origin = lineOfSightForecast.originForecast;
@@ -46,101 +49,135 @@ export function scoreLineOfSightForecast(
         lineOfSightForecast.azimuthDegrees,
         origin.sunAzimuthDegrees
     );
-    if (sunAltDeg < -5) {
-        zeroResult.note = "Sun too low";
-        return zeroResult;
-    } else if (sunAltDeg > 0 && sunAltDeg < 5 && azimuthsDiff < 30) {
-        zeroResult.note = "Target too close to rising or setting sun";
-        return zeroResult;
-    } else if (sunAltDeg >= 5 && sunAltDeg < 10 && azimuthsDiff < 10) {
-        zeroResult.note = "Target too close to rising or setting sun";
-        return zeroResult;
+    if (sunAltDeg < scoring.sunTooLowBelowDegrees) {
+        return { score: 0, note: "Sun too low" };
+    } else if (
+        sunAltDeg > 0 &&
+        sunAltDeg < 5 &&
+        azimuthsDiff < scoring.minAzimuthDiffBelowFiveDegrees
+    ) {
+        return { score: 0, note: "Target too close to rising or setting sun" };
+    } else if (
+        sunAltDeg >= 5 &&
+        sunAltDeg < 10 &&
+        azimuthsDiff < scoring.minAzimuthDiffBelowTenDegrees
+    ) {
+        return { score: 0, note: "Target too close to rising or setting sun" };
     }
 
+    const lowPoints =
+        targetElevation >= HIGH_ELEVATION_THRESHOLD
+            ? [origin, ...points]
+            : [origin, ...points, target];
+
     // If too much low cloud at origin or any points in between, as well as at a not-high elevation target, no go.
-    const lowCloudPoints = highElevationTarget
-        ? [origin, ...points]
-        : [origin, ...points, target];
     const maxLowCloud = Math.max(
-        ...lowCloudPoints.map((point) => point.cloudCoverLow)
+        ...lowPoints.map((point) => point.cloudCoverLow)
     );
-    if (maxLowCloud >= config.maxLowCloud) {
-        zeroResult.note = `Too much low cloud, max ${maxLowCloud}%`;
-        return zeroResult;
+    if (maxLowCloud > scoring.maxLowCloud) {
+        return { score: 0, note: `Too much low cloud, max ${maxLowCloud}%` };
     }
 
     // If total cloud cover anywhere is too high, no go.
     const maxTotalCloudCover = Math.max(
         ...allPoints.map((point) => point.cloudCover)
     );
-    if (maxTotalCloudCover >= config.maxTotalCloudCover) {
-        zeroResult.note = `Too much total cloud cover, max ${maxTotalCloudCover}%`;
-        return zeroResult;
+    if (maxTotalCloudCover > scoring.maxTotalCloudCover) {
+        return {
+            score: 0,
+            note: `Too much total cloud cover, max ${maxTotalCloudCover}%`,
+        };
     }
 
     // If too much high cloud or rain at target, no go.
     if (
-        highElevationTarget &&
-        (target.cloudCoverHigh >= config.maxHighCloudAtTarget ||
-            target.precipitation > config.maxPrecipitationAtTarget)
+        targetElevation >= HIGH_ELEVATION_THRESHOLD &&
+        (target.cloudCoverHigh > scoring.maxHighCloudAtTarget ||
+            target.precipitation > scoring.maxPrecipitationAtTarget)
     ) {
-        zeroResult.note = `Too much high cloud and/or rain at the target, high cloud ${target.cloudCoverHigh}%, rain ${target.precipitation}mm`;
-        return zeroResult;
+        return {
+            score: 0,
+            note: `Too much high cloud and/or rain at the target, high cloud ${target.cloudCoverHigh}%, rain ${target.precipitation}mm`,
+        };
     }
 
     // If too much rain at any point, no go.
     const maxPrecipitation = Math.max(
         ...allPoints.map((point) => point.precipitation)
     );
-    if (maxPrecipitation >= config.maxPrecipitation) {
-        zeroResult.note = `Too much rain, max ${maxPrecipitation}mm`;
-        return zeroResult;
+    if (maxPrecipitation > scoring.maxPrecipitation) {
+        return { score: 0, note: `Too much rain, max ${maxPrecipitation}mm` };
     }
 
-    /* Visibility */
-
-    let visibilityScore;
-    const visibilityWeight = 0.1;
-
+    // If visibility is limited at any point, no go.
     const minVisibility = Math.min(
-        // If visibility is null, as it can be for historical responses, assume ideal visibility.
-        ...allPoints.map((point) => point.visibility || config.idealVisibility)
+        // If visibility is null, as it can be for historical responses, assume the minimum.
+        ...allPoints.map((point) => point.visibility || scoring.minVisibility)
     );
-    if (minVisibility < config.minAcceptableVisibility) {
-        zeroResult.note = `Minimum visibility too low, ${(minVisibility / 1000).toFixed(1)}km`;
-        return zeroResult;
-    } else if (minVisibility < config.idealVisibility) {
-        visibilityScore =
-            (minVisibility - config.minAcceptableVisibility) /
-            (config.idealVisibility - config.minAcceptableVisibility);
-    } else {
-        visibilityScore = 1;
+    if (minVisibility < scoring.minVisibility) {
+        return {
+            score: 0,
+            note: `Minimum visibility too low, ${(minVisibility / 1000).toFixed(1)}km`,
+        };
+    }
+
+    // If the lifted index - a measure of atmosphere turbulance that can cause shimmer - is too low, no go.
+    const minLiftedIndex = Math.min(
+        // If lifted index is null, as it can be for historical responses, assume the minimum.
+        ...allPoints.map((point) => point.liftedIndex || scoring.minLiftedIndex)
+    );
+    if (minLiftedIndex < scoring.minLiftedIndex) {
+        return {
+            score: 0,
+            note: `Minimum lifted index is too low meaning unstable air and a shimmer risk, ${minLiftedIndex}`,
+        };
+    }
+
+    // If the wind speed is too high at the origin or any points in between, as well as at a not-high elevation target, no go.
+    const maxWindSpeed = Math.max(
+        ...lowPoints.map((point) => point.windSpeed10m)
+    );
+    if (maxWindSpeed > scoring.maxWindSpeed) {
+        return {
+            score: 0,
+            note: `Maximum wind speed too high, max ${maxWindSpeed}km/h`,
+        };
     }
 
     /* Dew Point Spread */
 
     let dewPointSpreadScore;
-    const dewPointSpreadWeight = 0.9;
-
     const minDewPointSpread = Math.min(
         ...allPoints.map((point) => point.temperature2m - point.dewPoint2m)
     );
-    if (minDewPointSpread < config.minAcceptableDewPointSpread) {
-        zeroResult.note = `Minimum dew point spread too low, ${minDewPointSpread.toFixed(1)}°`;
-        return zeroResult;
-    } else if (minDewPointSpread < config.idealDewPointSpread) {
+    if (minDewPointSpread < scoring.minAcceptableDewPointSpread) {
+        return {
+            score: 0,
+            note: `Minimum dew point spread too low, ${minDewPointSpread.toFixed(1)}°`,
+        };
+    } else if (minDewPointSpread < scoring.idealDewPointSpread) {
         dewPointSpreadScore =
-            (minDewPointSpread - config.minAcceptableDewPointSpread) /
-            (config.idealDewPointSpread - config.minAcceptableDewPointSpread);
+            (minDewPointSpread - scoring.minAcceptableDewPointSpread) /
+            (scoring.idealDewPointSpread - scoring.minAcceptableDewPointSpread);
     } else {
         dewPointSpreadScore = 1;
     }
 
-    const rawScore =
-        visibilityWeight * visibilityScore +
-        dewPointSpreadWeight * dewPointSpreadScore;
+    /* Boundary Layer Penalty */
+
+    let boundaryLayerMultiplier = 1;
+    if (origin.boundaryLayerHeight > originElevation) {
+        const depthRatio = originElevation / origin.boundaryLayerHeight;
+        boundaryLayerMultiplier =
+            scoring.boundaryLayerMaxPenalty +
+            (1 - scoring.boundaryLayerMaxPenalty) * depthRatio;
+    }
+
+    const baseScore = Math.round(dewPointSpreadScore * 100);
+    const finalScore = Math.round(baseScore * boundaryLayerMultiplier);
+
     return {
-        score: Math.round(rawScore * 100),
-        note: `Dew point spread score ${Math.round(dewPointSpreadScore * 100)}, visibility score ${Math.round(visibilityScore * 100)}`,
+        score: finalScore,
+        note: `Base score ${baseScore} from minimum dew point spread of ${minDewPointSpread.toFixed(1)}°, adjusted by boundary layer multiplier of ${boundaryLayerMultiplier.toFixed(2)}`,
     };
 }
