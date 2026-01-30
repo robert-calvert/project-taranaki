@@ -1,6 +1,6 @@
 {
   "name": "project-taranaki",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "A tool to score upcoming time windows of visibility for long lines of sight based on weather forecasts.",
   "main": "index.ts",
   "scripts": {

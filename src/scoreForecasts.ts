@@ -13,11 +13,11 @@ async function scoreForecasts() {
     try {
         const argv = minimist(process.argv.slice(2), {
             string: ["config", "days", "notifyAtThreshold", "asAtDate"],
-            boolean: ["idealLightingOnly"],
+            boolean: ["dawnDuskOnly"],
             default: {
                 config: "config",
                 days: 3,
-                idealLightingOnly: true,
+                dawnDuskOnly: true,
             },
         });
 
@@ -26,7 +26,7 @@ async function scoreForecasts() {
             days: z.coerce.number().gte(1).lte(14),
             notifyAtThreshold: z.coerce.number().gte(1).lte(100).optional(),
             asAtDate: z.iso.date().optional(),
-            idealLightingOnly: z.boolean(),
+            dawnDuskOnly: z.boolean(),
         });
 
         const args = argsSchema.parse(argv);
@@ -78,9 +78,10 @@ async function scoreForecasts() {
         for (let i = 0; i < originForecasts.length; i++) {
             const originForecast = originForecasts[i];
             const date = originForecast.dateTime;
-            if (args.idealLightingOnly) {
-                const dateString = date.format("YYYY-MM-DD");
-                const pair = sunriseSunsetPairs[dateString];
+
+            const dateString = date.format("YYYY-MM-DD");
+            const pair = sunriseSunsetPairs[dateString];
+            if (args.dawnDuskOnly) {
                 if (
                     !(
                         (date.isAfter(pair.sunsetMin) &&
@@ -88,6 +89,13 @@ async function scoreForecasts() {
                         (date.isAfter(pair.sunsetMin) &&
                             date.isBefore(pair.sunsetMax))
                     )
+                ) {
+                    continue;
+                }
+            } else {
+                if (
+                    date.isBefore(pair.sunriseMin) ||
+                    date.isAfter(pair.sunsetMax)
                 ) {
                     continue;
                 }

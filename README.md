@@ -107,11 +107,11 @@ There are a few arguments you can provide to adjust what the script does:
 | `--days <1-14>` | Fetch forecasts for a different number of days. Default: 3 |
 | `--notifyAtThreshold <0-100>` | If a **Gmail** email and app password are set as environment variables, send an email when a score in the output exceeds this threshold. Default: No email sent |
 | `--asAtDate <YYYY-MM-DD>` | Fetch and score forecasts for a **single day** in the past. Useful for calibrating a LOS config based on a previous successful photo. Default: Not set |
-| `--idealLightingOnly <true/false>` | Only score and show forecasts near sunrise and sunset. Default: true |
+| `--dawnDuskOnly <true/false>` | Only score and show forecasts near sunrise and sunset. Default: true |
 
 ### Output
 
-Here's an example output of 3 forecast days with ideal lighting:
+Here's an example output of 3 forecast days limited to dawn/dusk time windows:
 ```
 Fetching forecasts...
 [x] 19:00 Mon 26 Jan scores 0 (Too much low cloud, max 79%)
@@ -180,6 +180,8 @@ For example, if the default cloud cover thresholds are too strict:
   }
 }
 ```
+
+[Check the structure of the default config](/src/forecasts/score.ts) to see what you can adjust for your LOS.
 
 ## Calibration based on successful photos of other sightlines
 
