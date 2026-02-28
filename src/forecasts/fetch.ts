@@ -7,9 +7,16 @@ import {
     openMeteoHourlyResponseSchema,
 } from "../types/openMeteo";
 import { apiGet } from "../util/api";
-import * as SunCalc from "suncalc";
 import { toDegrees } from "../calc/func";
 import dayjs from "dayjs";
+
+// SunCalc jank
+import SunCalcDefault from "suncalc";
+import type * as SunCalcNS from "suncalc";
+
+const SunCalc = SunCalcDefault as unknown as typeof SunCalcNS;
+
+const { getPosition } = SunCalc;
 
 async function sendOpenMeteoRequest<T>(
     periodKey: string,
@@ -103,7 +110,7 @@ export async function getHourlyForecasts(
     return innerResponse.time
         .filter((time) => (asAtDate ? true : new Date(time) > new Date()))
         .map((time, index) => {
-            const sunPosition = SunCalc.getPosition(
+            const sunPosition = getPosition(
                 new Date(time),
                 latitude,
                 longitude

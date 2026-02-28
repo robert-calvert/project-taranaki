@@ -14,10 +14,9 @@ This tool helps me identify these ideal conditions automatically so I know when 
 
 ## Setup
 
-Run these commands:
+Run this command:
 ```
 npm install
-npm run build
 ```
 Then, work from `config.json` to configure the tool for your line of sight (LOS).
 
@@ -49,7 +48,7 @@ If you want to have multiple LOS configs on the go, you can create them as addit
 To check if a particular line of sight is actually feasible, run:
 
 ```
-node build/checkFeasibility.js
+npx tsx src/checkFeasibility.ts
 ```
 
 For the default Donald Mclean to Taranaki line of sight and default refraction, this will give you an output of:
@@ -64,7 +63,7 @@ You can specify a different config and a custom refraction value using optional 
 
 To check the feasibility of the `hawkins.json` config with a more conservative refraction of 0.1, run:
 ```
-node build/checkFeasibility.js --config hawkins --refraction 0.1
+npx tsx src/checkFeasibility.ts --config hawkins --refraction 0.1
 ```
 
 This will give you an output of:
@@ -82,21 +81,21 @@ To improve the accuracy of the tool's forecasts and scoring, you can include poi
 
 To generate these equidistant points for your `config.json`, run:
 ```
-node build/calculateEquidistantPoints.js --points 3
+npx tsx src/calculateEquidistantPoints.ts --points 3
 ```
 
 3 is a sensible number of points for most long lines of sight, but you can generate up to 10. As a forecast is fetched for each point, more points increase your risk of reaching an Open-Meteo API rate limit later on.
 
 As before, you can also specify a different config file to generate points for:
 ```
-node build/calculateEquidistantPoints.js --config hawkins --points 2
+npx tsx src/calculateEquidistantPoints.ts --config hawkins --points 2
 ```
 
 ## Usage
 
 ### Script and Arguments
 ```
-node build/scoreForecasts.js
+npx tsx src/scoreForecasts.ts
 ```
 
 There are a few arguments you can provide to adjust what the script does:
@@ -195,7 +194,7 @@ The non-trivial extra distance from Donald Mclean and therefore greater reliance
 
 You can use the `asAtDate` argument to score historical time windows for further calibration:
 ```
-node build/scoreForecasts --config hawkins --asAtDate 2022-12-28
+npx tsx src/scoreForecasts.ts --config hawkins --asAtDate 2022-12-28
 ```
 
 ## AI Usage

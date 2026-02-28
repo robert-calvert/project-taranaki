@@ -6,6 +6,11 @@ import { getDailySunriseSunset, getHourlyForecasts } from "./forecasts/fetch";
 import { scoreLineOfSightForecast } from "./forecasts/score";
 import { computeAzimuth } from "./calc/azimuth";
 import { sendGmailNotification } from "./util/email";
+import { fileURLToPath } from "node:url";
+import { dirname } from "node:path";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 dotenv.config({ path: __dirname + "/../.env", quiet: true });
 

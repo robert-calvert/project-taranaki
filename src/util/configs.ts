@@ -2,6 +2,8 @@ import { promises as fs } from "fs";
 import path from "path";
 import { ZodType } from "zod";
 import { LineOfSightConfig, lineOfSightConfigSchema } from "../types/config";
+import { fileURLToPath } from "node:url";
+import { dirname } from "node:path";
 
 async function readJsonFile<T>(
     path: string,
@@ -21,6 +23,8 @@ async function writeJsonFile(
 }
 
 function getConfigPath(filename: string): string {
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = dirname(__filename);
     const rootDir = path.resolve(__dirname, "../..");
     return path.join(rootDir, `${filename}.json`);
 }

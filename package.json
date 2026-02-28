@@ -1,29 +1,28 @@
 {
-  "name": "project-taranaki",
-  "version": "0.2.1",
-  "description": "A tool to score upcoming time windows of visibility for long lines of sight based on weather forecasts.",
-  "main": "index.ts",
-  "scripts": {
-    "build": "npx tsc"
-  },
-  "author": "Robert Calvert",
-  "license": "UNLICENSED",
-  "devDependencies": {
-    "@types/minimist": "^1.2.5",
-    "@types/node": "^25.0.9",
-    "@types/nodemailer": "^7.0.5",
-    "@types/suncalc": "^1.9.2",
-    "prettier": "^3.8.0",
-    "ts-node": "^10.9.2",
-    "typescript": "^5.9.3"
-  },
-  "dependencies": {
-    "axios": "^1.13.2",
-    "dayjs": "^1.11.19",
-    "dotenv": "^17.2.3",
-    "minimist": "^1.2.8",
-    "nodemailer": "^7.0.12",
-    "suncalc": "^1.9.0",
-    "zod": "^4.3.5"
-  }
+    "name": "project-taranaki",
+    "version": "0.2.2",
+    "description": "A tool to score upcoming time windows of visibility for long lines of sight based on weather forecasts.",
+    "main": "index.ts",
+    "type": "module",
+    "author": "Robert Calvert",
+    "license": "UNLICENSED",
+    "devDependencies": {
+        "@types/minimist": "^1.2.5",
+        "@types/node": "^25.0.9",
+        "@types/nodemailer": "^7.0.5",
+        "@types/suncalc": "^1.9.2",
+        "prettier": "^3.8.0",
+        "ts-node": "^10.9.2",
+        "typescript": "^5.9.3"
+    },
+    "dependencies": {
+        "axios": "^1.13.2",
+        "dayjs": "^1.11.19",
+        "dotenv": "^17.2.3",
+        "minimist": "^1.2.8",
+        "nodemailer": "^7.0.12",
+        "suncalc": "^1.9.0",
+        "tsx": "^4.21.0",
+        "zod": "^4.3.5"
+    }
 }
