@@ -21,13 +21,13 @@ async function requestWithRetry(
     config: AxiosRequestConfig,
     retries: number = 2
 ): Promise<AxiosResponse> {
-    const configUsingAgent: AxiosRequestConfig = {
-        httpsAgent,
-        ...config,
-    };
-
     let attempt = 0;
     while (true) {
+        const configUsingAgent: AxiosRequestConfig = {
+            httpsAgent,
+            ...config,
+        };
+
         try {
             const response = await axios.request(configUsingAgent);
 
@@ -47,7 +47,16 @@ async function requestWithRetry(
             );
             console.error(
                 "Request Config:",
-                JSON.stringify(configUsingAgent, null, 2)
+                JSON.stringify(
+                    {
+                        method: config.method,
+                        url: config.url,
+                        timeout: config.timeout,
+                        headers: config.headers,
+                    },
+                    null,
+                    2
+                )
             );
 
             if (axios.isAxiosError(error)) {
