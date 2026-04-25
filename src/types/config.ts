@@ -13,22 +13,28 @@ export type GeographicPoint = z.infer<typeof geographicPointSchema>;
 
 const DEFAULT_TIMEZONE = "Pacific/Auckland";
 
+const optionalNonNegativeNumberSchema = z.number().nonnegative().optional();
 const zeroToOneHundredSchema = z.number().gte(0).lte(100).optional();
 const scoringConfigSchema = z.object({
     sunTooLowBelowDegrees: z.number().optional(),
-    minAzimuthDiffBelowFiveDegrees: z.number().nonnegative().optional(),
-    minAzimuthDiffBelowTenDegrees: z.number().nonnegative().optional(),
+    minAzimuthDiffBelowFiveDegrees: optionalNonNegativeNumberSchema,
+    minAzimuthDiffBelowTenDegrees: optionalNonNegativeNumberSchema,
     maxLowCloud: zeroToOneHundredSchema,
     maxTotalCloudCover: zeroToOneHundredSchema,
-    maxHighCloudAtTarget: zeroToOneHundredSchema,
-    maxPrecipitationAtTarget: z.number().nonnegative().optional(),
-    maxPrecipitation: z.number().nonnegative().optional(),
-    minVisibility: z.number().nonnegative().optional(),
+    maxMidCloudAtTarget: zeroToOneHundredSchema,
+    maxPrecipitationAtTarget: optionalNonNegativeNumberSchema,
+    maxPrecipitation: optionalNonNegativeNumberSchema,
     minLiftedIndex: z.number().optional(),
-    maxWindSpeed: z.number().nonnegative().optional(),
+    maxWindSpeed: optionalNonNegativeNumberSchema,
+    maxAerosolOpticalDepth: optionalNonNegativeNumberSchema,
+    idealAerosolOpticalDepth: optionalNonNegativeNumberSchema,
+    minAcceptableVisibility: optionalNonNegativeNumberSchema,
+    idealVisibility: optionalNonNegativeNumberSchema,
+    minDewPointSpreadForLowVis: optionalNonNegativeNumberSchema,
     minAcceptableDewPointSpread: z.number().optional(),
-    idealDewPointSpread: z.number().nonnegative().optional(),
+    idealDewPointSpread: optionalNonNegativeNumberSchema,
     boundaryLayerMaxPenalty: z.number().gte(0).lte(1).optional(),
+    hazeMaxPenalty: z.number().gte(0).lte(1).optional(),
 });
 
 export type ScoringConfig = z.infer<typeof scoringConfigSchema>;

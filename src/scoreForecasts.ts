@@ -28,7 +28,7 @@ async function scoreForecasts() {
 
         const argsSchema = z.object({
             config: z.string().nonempty(),
-            days: z.coerce.number().gte(1).lte(14),
+            days: z.coerce.number().gte(1).lte(7),
             notifyAtThreshold: z.coerce.number().gte(1).lte(100).optional(),
             asAtDate: z.iso.date().optional(),
             dawnDuskOnly: z.boolean(),
@@ -89,7 +89,7 @@ async function scoreForecasts() {
             if (args.dawnDuskOnly) {
                 if (
                     !(
-                        (date.isAfter(pair.sunsetMin) &&
+                        (date.isAfter(pair.sunriseMin) &&
                             date.isBefore(pair.sunriseMax)) ||
                         (date.isAfter(pair.sunsetMin) &&
                             date.isBefore(pair.sunsetMax))

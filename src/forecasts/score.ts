@@ -1,3 +1,4 @@
+import dayjs from "dayjs";
 import { differenceInAzimuths } from "../calc/azimuth";
 import { ScoringConfig } from "../types/config";
 import {
@@ -7,21 +8,26 @@ import {
 
 const HIGH_ELEVATION_THRESHOLD = 2000;
 
-const defaultScoringConfig: Required<ScoringConfig> = {
+export const defaultScoringConfig: Required<ScoringConfig> = {
     sunTooLowBelowDegrees: -5,
     minAzimuthDiffBelowFiveDegrees: 30,
     minAzimuthDiffBelowTenDegrees: 10,
-    maxLowCloud: 25,
-    maxTotalCloudCover: 40,
-    maxHighCloudAtTarget: 10,
+    maxLowCloud: 30,
+    maxMidCloudAtTarget: 20,
+    maxTotalCloudCover: 50,
     maxPrecipitationAtTarget: 0.1,
     maxPrecipitation: 0.3,
-    minVisibility: 15000,
     minLiftedIndex: 0.1,
     maxWindSpeed: 40,
+    maxAerosolOpticalDepth: 0.3,
+    idealAerosolOpticalDepth: 0.05,
+    minAcceptableVisibility: 10000,
+    idealVisibility: 15000,
+    minDewPointSpreadForLowVis: 2.5,
     minAcceptableDewPointSpread: 1,
     idealDewPointSpread: 7,
     boundaryLayerMaxPenalty: 0.7,
+    hazeMaxPenalty: 0.5,
 };
 
 export function scoreLineOfSightForecast(
@@ -89,15 +95,15 @@ export function scoreLineOfSightForecast(
         };
     }
 
-    // If too much high cloud or rain at target, no go.
+    // If too much mid cloud or rain at target, no go.
     if (
         targetElevation >= HIGH_ELEVATION_THRESHOLD &&
-        (target.cloudCoverHigh > scoring.maxHighCloudAtTarget ||
+        (target.cloudCoverMid > scoring.maxMidCloudAtTarget ||
             target.precipitation > scoring.maxPrecipitationAtTarget)
     ) {
         return {
             score: 0,
-            note: `Too much high cloud and/or rain at the target, high cloud ${target.cloudCoverHigh}%, rain ${target.precipitation}mm`,
+            note: `Too much cloud and/or rain at the target, mid. cloud ${target.cloudCoverMid}%, rain ${target.precipitation}mm`,
         };
     }
 
@@ -107,18 +113,6 @@ export function scoreLineOfSightForecast(
     );
     if (maxPrecipitation > scoring.maxPrecipitation) {
         return { score: 0, note: `Too much rain, max ${maxPrecipitation}mm` };
-    }
-
-    // If visibility is limited at any point, no go.
-    const minVisibility = Math.min(
-        // If visibility is null, as it can be for historical responses, assume the minimum.
-        ...allPoints.map((point) => point.visibility || scoring.minVisibility)
-    );
-    if (minVisibility < scoring.minVisibility) {
-        return {
-            score: 0,
-            note: `Minimum visibility too low, ${(minVisibility / 1000).toFixed(1)}km`,
-        };
     }
 
     // If the lifted index - a measure of atmosphere turbulance that can cause shimmer - is too low, no go.
@@ -144,6 +138,22 @@ export function scoreLineOfSightForecast(
         };
     }
 
+    // If the aerosol optical depth is too high at any point, indicating thick haze, then no go.
+    const maxAerosolOpticalDepth = Math.max(
+        // If aerosol optical depth is null, as it can be for historical responses, assume the IDEAL.
+        // This is because this value is later used for a sliding scale multiplier, so using the ideal means it doesn't affect the score.
+        ...allPoints.map(
+            (point) =>
+                point.aerosolOpticalDepth || scoring.idealAerosolOpticalDepth
+        )
+    );
+    if (maxAerosolOpticalDepth > scoring.maxAerosolOpticalDepth) {
+        return {
+            score: 0,
+            note: `Maximum aerosol haze too thick, ${maxAerosolOpticalDepth}`,
+        };
+    }
+
     /* Dew Point Spread */
 
     let dewPointSpreadScore;
@@ -163,6 +173,34 @@ export function scoreLineOfSightForecast(
         dewPointSpreadScore = 1;
     }
 
+    /* Visibility */
+
+    // If visibility is limited at any point, no go.
+    const minVisibility = Math.min(
+        // If visibility is null, as it can be for historical responses, assume the minimum.
+        ...allPoints.map(
+            (point) => point.visibility || scoring.minAcceptableVisibility
+        )
+    );
+    if (minVisibility < scoring.minAcceptableVisibility) {
+        return {
+            score: 0,
+            note: `Minimum visibility too low, ${(minVisibility / 1000).toFixed(1)}km`,
+        };
+    }
+
+    if (
+        minVisibility < scoring.idealVisibility &&
+        dayjs().isBefore(lineOfSightForecast.dateTime)
+    ) {
+        if (minDewPointSpread < scoring.minDewPointSpreadForLowVis) {
+            return {
+                score: 0,
+                note: `Sub-optimal visibility combined with low dew point spread indicates wet mist/fog forming, ${(minVisibility / 1000).toFixed(1)}km and ${minDewPointSpread.toFixed(1)}°`,
+            };
+        }
+    }
+
     /* Boundary Layer Penalty */
 
     let boundaryLayerMultiplier = 1;
@@ -173,11 +211,23 @@ export function scoreLineOfSightForecast(
             (1 - scoring.boundaryLayerMaxPenalty) * depthRatio;
     }
 
+    /* Haze Penalty */
+
+    let hazeMultiplier = 1;
+    if (maxAerosolOpticalDepth > scoring.idealAerosolOpticalDepth) {
+        const hazeRatio =
+            (maxAerosolOpticalDepth - scoring.idealAerosolOpticalDepth) /
+            (scoring.maxAerosolOpticalDepth - scoring.idealAerosolOpticalDepth);
+        hazeMultiplier = 1 - hazeRatio * scoring.hazeMaxPenalty;
+    }
+
     const baseScore = Math.round(dewPointSpreadScore * 100);
-    const finalScore = Math.round(baseScore * boundaryLayerMultiplier);
+    const finalScore = Math.round(
+        baseScore * boundaryLayerMultiplier * hazeMultiplier
+    );
 
     return {
         score: finalScore,
-        note: `Base score ${baseScore} from minimum dew point spread of ${minDewPointSpread.toFixed(1)}°, adjusted by boundary layer multiplier of ${boundaryLayerMultiplier.toFixed(2)}`,
+        note: `Base score ${baseScore} from minimum dew point spread of ${minDewPointSpread.toFixed(1)}°, adjusted by boundary layer multiplier of ${boundaryLayerMultiplier.toFixed(2)} and haze multiplier of ${hazeMultiplier.toFixed(2)}`,
     };
 }

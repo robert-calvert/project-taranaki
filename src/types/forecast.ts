@@ -12,7 +12,6 @@ export type PointForecast = {
     temperature2m: number;
     dewPoint2m: number;
     visibility: number | null; // null for some historical responses
-    cloudCoverHigh: number;
     cloudCoverMid: number;
     cloudCoverLow: number;
     cloudCover: number;
@@ -20,6 +19,7 @@ export type PointForecast = {
     boundaryLayerHeight: number;
     liftedIndex: number | null; // null for some historical responses
     windSpeed10m: number;
+    aerosolOpticalDepth: number | null; // null for some historical responses
     sunAltitudeDegrees: number;
     sunAzimuthDegrees: number;
 };
