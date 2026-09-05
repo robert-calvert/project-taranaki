@@ -12,7 +12,7 @@ export const defaultScoringConfig: Required<ScoringConfig> = {
     sunTooLowBelowDegrees: -5,
     minAzimuthDiffBelowFiveDegrees: 30,
     minAzimuthDiffBelowTenDegrees: 10,
-    maxLowCloud: 30,
+    maxLowCloud: 40,
     maxMidCloudAtTarget: 20,
     maxTotalCloudCover: 50,
     maxPrecipitationAtTarget: 0.1,
@@ -23,11 +23,11 @@ export const defaultScoringConfig: Required<ScoringConfig> = {
     idealAerosolOpticalDepth: 0.05,
     minAcceptableVisibility: 10000,
     idealVisibility: 15000,
-    minDewPointSpreadForLowVis: 2.5,
-    minAcceptableDewPointSpread: 1,
+    minDewPointSpreadAtOriginForLowVis: 2,
+    minAcceptableDewPointSpread: 0.2,
     idealDewPointSpread: 7,
-    boundaryLayerMaxPenalty: 0.7,
-    hazeMaxPenalty: 0.5,
+    boundaryLayerMaxPenalty: 0.8,
+    hazeMaxPenalty: 0.6,
 };
 
 export function scoreLineOfSightForecast(
@@ -189,14 +189,15 @@ export function scoreLineOfSightForecast(
         };
     }
 
+    const originSpread = origin.temperature2m - origin.dewPoint2m;
     if (
         minVisibility < scoring.idealVisibility &&
         dayjs().isBefore(lineOfSightForecast.dateTime)
     ) {
-        if (minDewPointSpread < scoring.minDewPointSpreadForLowVis) {
+        if (originSpread < scoring.minDewPointSpreadAtOriginForLowVis) {
             return {
                 score: 0,
-                note: `Sub-optimal visibility combined with low dew point spread indicates wet mist/fog forming, ${(minVisibility / 1000).toFixed(1)}km and ${minDewPointSpread.toFixed(1)}°`,
+                note: `Sub-optimal visibility combined with low dew point spread at origin indicates wet mist/fog forming, ${(minVisibility / 1000).toFixed(1)}km and ${minDewPointSpread.toFixed(1)}°`,
             };
         }
     }

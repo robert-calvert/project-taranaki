@@ -30,7 +30,7 @@ const scoringConfigSchema = z.object({
     idealAerosolOpticalDepth: optionalNonNegativeNumberSchema,
     minAcceptableVisibility: optionalNonNegativeNumberSchema,
     idealVisibility: optionalNonNegativeNumberSchema,
-    minDewPointSpreadForLowVis: optionalNonNegativeNumberSchema,
+    minDewPointSpreadAtOriginForLowVis: optionalNonNegativeNumberSchema,
     minAcceptableDewPointSpread: z.number().optional(),
     idealDewPointSpread: optionalNonNegativeNumberSchema,
     boundaryLayerMaxPenalty: z.number().gte(0).lte(1).optional(),
